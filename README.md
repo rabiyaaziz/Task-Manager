@@ -14,7 +14,7 @@ An interactive and user-friendly To-Do List Web Application built with HTML, CSS
 
 ## 🖼 Demo
 
-![Sample view of the Task Manager in action.](https://imgur.com/a/wLLNEYd)
+![Sample view of the Task Manager in action.](task-manager-screenshot.png)
 
 
 
