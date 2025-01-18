@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive To-Do List</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+        }
+        h1 {
+            text-align: center;
+        }
+        #task-form {
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            width: 300px;
+        }
+        #task-form input, #task-form select, #task-form button {
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        .task-list {
+            list-style: none;
+            padding: 0;
+        }
+        .task-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            background-color: #ffffff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            cursor: grab;
+        }
+        .task-item.completed {
+            text-decoration: line-through;
+            background-color: #e0ffe0;
+        }
+        .task-item.priority-high {
+            background-color: #ffcccc;
+        }
+        .task-item.priority-medium {
+            background-color: #fff7cc;
+        }
+        .task-item.priority-low {
+            background-color: #ccffcc;
+        }
+        button {
+            cursor: pointer;
+        }
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        #dark-mode-toggle {
+            margin: 20px;
+            padding: 10px;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        body.dark-mode {
+            background-color: #2e2e2e;
+            color: white;
+        }
+        .task-item.dark-mode {
+            background-color: #444444;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Interactive To-Do List</h1>
+
+<button id="dark-mode-toggle">Toggle Dark Mode</button>
+
+<form id="task-form">
+    <input type="text" id="task-description" placeholder="Task description" required>
+    <input type="datetime-local" id="task-due-date" required>
+    <select id="task-priority">
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+    </select>
+    <button type="submit">Add Task</button>
+</form>
+
+<h2>Tasks</h2>
+<ul id="task-list" class="task-list">
+    <!-- Tasks will appear here -->
+</ul>
+
+<script>
+    const form = document.getElementById('task-form');
+    const taskDescriptionInput = document.getElementById('task-description');
+    const taskDueDateInput = document.getElementById('task-due-date');
+    const taskPriorityInput = document.getElementById('task-priority');
+    const taskList = document.getElementById('task-list');
+    const darkModeToggle = document.getElementById('dark-mode-toggle');
+    let isDarkMode = false;
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const taskDescription = taskDescriptionInput.value;
+        const taskDueDate = taskDueDateInput.value;
+        const taskPriority = taskPriorityInput.value;
+
+        const task = {
+            description: taskDescription,
+            dueDate: taskDueDate,
+            priority: taskPriority,
+            completed: false,
+        };
+
+        addTaskToList(task);
+        saveTaskToLocalStorage(task);
+        taskDescriptionInput.value = '';
+        taskDueDateInput.value = '';
+    });
+
+    function addTaskToList(task) {
+        const taskItem = document.createElement('li');
+        taskItem.classList.add('task-item', `priority-${task.priority}`);
+        taskItem.draggable = true;
+        taskItem.innerHTML = `
+            <span>${task.description}</span>
+            <span>${new Date(task.dueDate).toLocaleString()}</span>
+            <button onclick="toggleTaskCompletion(event)">Complete</button>
+            <button onclick="removeTask(event)">Remove</button>
+        `;
+        taskItem.dataset.dueDate = task.dueDate;
+        taskItem.addEventListener('dragstart', onDragStart);
+        taskItem.addEventListener('dragover', onDragOver);
+        taskItem.addEventListener('drop', onDrop);
+        taskList.appendChild(taskItem);
+    }
+
+    function saveTaskToLocalStorage(task) {
+        const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+        tasks.push(task);
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+    }
+
+    function toggleTaskCompletion(event) {
+        const taskItem = event.target.closest('.task-item');
+        taskItem.classList.toggle('completed');
+        updateTaskInLocalStorage(taskItem);
+    }
+
+    function removeTask(event) {
+        const taskItem = event.target.closest('.task-item');
+        taskList.removeChild(taskItem);
+        removeTaskFromLocalStorage(taskItem);
+    }
+
+    function removeTaskFromLocalStorage(taskItem) {
+        const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+        const updatedTasks = tasks.filter(task => task.description !== taskItem.querySelector('span').textContent);
+        localStorage.setItem('tasks', JSON.stringify(updatedTasks));
+    }
+
+    function updateTaskInLocalStorage(taskItem) {
+        const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+        const taskDescription = taskItem.querySelector('span').textContent;
+        const task = tasks.find(task => task.description === taskDescription);
+        task.completed = taskItem.classList.contains('completed');
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+    }
+
+    function loadTasksFromLocalStorage() {
+        const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+        tasks.forEach(task => addTaskToList(task));
+    }
+
+    window.onload = function () {
+        loadTasksFromLocalStorage();
+        setInterval(checkTaskDueDates, 60000); // Check due dates every minute
+    };
+
+    function checkTaskDueDates() {
+        const tasks = document.querySelectorAll('.task-item');
+        tasks.forEach(task => {
+            const dueDate = new Date(task.dataset.dueDate);
+            if (dueDate - new Date() <= 1800000 && !task.classList.contains('completed')) {
+                notifyDueTask(task);
+            }
+        });
+    }
+
+    function notifyDueTask(task) {
+        if (Notification.permission === 'granted') {
+            new Notification(`Task "${task.querySelector('span').textContent}" is due soon!`);
+        }
+    }
+
+    // Request notification permission
+    if (Notification.permission !== 'granted') {
+        Notification.requestPermission();
+    }
+
+    // Dark Mode Toggle
+    darkModeToggle.addEventListener('click', function() {
+        isDarkMode = !isDarkMode;
+        if (isDarkMode) {
+            document.body.classList.add('dark-mode');
+            document.querySelectorAll('.task-item').forEach(item => item.classList.add('dark-mode'));
+            darkModeToggle.textContent = 'Toggle Light Mode';
+        } else {
+            document.body.classList.remove('dark-mode');
+            document.querySelectorAll('.task-item').forEach(item => item.classList.remove('dark-mode'));
+            darkModeToggle.textContent = 'Toggle Dark Mode';
+        }
+    });
+
+    // Drag-and-Drop functionality
+    let draggedItem = null;
+
+    function onDragStart(event) {
+        draggedItem = event.target;
+        setTimeout(function() {
+            event.target.style.opacity = '0.5';
+        }, 0);
+    }
+
+    function onDragOver(event) {
+        event.preventDefault();
+    }
+
+    function onDrop(event) {
+        event.preventDefault();
+        if (event.target.classList.contains('task-item')) {
+            taskList.insertBefore(draggedItem, event.target);
+        }
+        draggedItem.style.opacity = '1';
+        draggedItem = null;
+    }
+</script>
+
+</body>
+</html>
